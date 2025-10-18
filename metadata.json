@@ -1,0 +1,5 @@
+{
+  "name": "Gamified AI Tutor",
+  "description": "An interactive web application that transforms user-provided course content into a gamified learning experience, delivered by a friendly AI sprite. Users input text, and the AI generates a structured course with lessons and quizzes.",
+  "requestFramePermissions": []
+}
