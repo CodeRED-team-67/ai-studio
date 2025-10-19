@@ -1,109 +1,63 @@
+// FIX: Replaced placeholder content with a full Gemini service implementation.
+import { GoogleGenAI } from "@google/genai";
+import { CourseDetails } from "../types";
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { Course } from '../types';
-
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-
+// FIX: Initialize GoogleGenAI with apiKey object as per guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const courseSchema = {
-    type: Type.OBJECT,
-    properties: {
-        title: {
-            type: Type.STRING,
-            description: "A short, engaging title for the entire course."
-        },
-        lessons: {
-            type: Type.ARRAY,
-            description: "An array of lesson objects that make up the course.",
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    title: {
-                        type: Type.STRING,
-                        description: "The title of this specific lesson."
-                    },
-                    content: {
-                        type: Type.STRING,
-                        description: "The main educational content for the lesson, explained simply."
-                    },
-                    quiz: {
-                        type: Type.OBJECT,
-                        description: "An optional multiple-choice quiz for this lesson.",
-                        properties: {
-                            question: { type: Type.STRING },
-                            options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            correctAnswer: { type: Type.STRING }
-                        },
-                        required: ["question", "options", "correctAnswer"]
-                    },
-                    fillInTheBlank: {
-                        type: Type.OBJECT,
-                        description: "An optional fill-in-the-blank exercise.",
-                        properties: {
-                            sentence: { type: Type.STRING, description: "The sentence with a placeholder like '___' for the blank." },
-                            correctAnswer: { type: Type.STRING, description: "The word that fills the blank." }
-                        },
-                        required: ["sentence", "correctAnswer"]
-                    },
-                    scrambledSentence: {
-                        type: Type.OBJECT,
-                        description: "An optional scrambled sentence minigame.",
-                        properties: {
-                            scrambled: { type: Type.ARRAY, items: { type: Type.STRING }, description: "An array of shuffled words." },
-                            correctSentence: { type: Type.STRING, description: "The correctly ordered sentence." }
-                        },
-                        required: ["scrambled", "correctSentence"]
-                    }
-                },
-                required: ["title", "content"]
-            }
-        }
-    },
-    required: ["title", "lessons"]
-};
-
-
-export const generateCourseFromContent = async (content: string): Promise<Course> => {
-    const prompt = `You are an expert instructional designer specializing in gamification. Your task is to transform the following raw text content into a structured, gamified mini-course. 
-
-    Follow these rules:
-    1.  Create a concise and catchy main title for the course.
-    2.  Break the content down into 3-5 short, easily digestible lessons.
-    3.  Each lesson must have a clear title and its core content.
-    4.  To make it interactive, add ONE of the following to most lessons: a multiple-choice quiz, a fill-in-the-blank exercise, or a scrambled sentence game. Vary the activities to keep it engaging.
-    5.  The tone should be encouraging and simple, as if for a beginner.
-    6.  The entire output must be a valid JSON object that strictly adheres to the provided schema. Do not include any text, markdown formatting, or explanations outside of the JSON object.
-    
-    Raw Content to transform:
-    ---
-    ${content}
-    ---
-    `;
-
+export const explainCourse = async (course: CourseDetails): Promise<string> => {
     try {
+        const model = 'gemini-2.5-flash';
+        const prompt = `Explain the following university course in a simple and easy-to-understand way for a new student. Focus on what they will learn and what the course is about.
+        
+Course Name: ${course.name} (${course.course_code})
+Course Description: ${course.description}
+Prerequisites: ${course.prerequisites_text || 'None'}
+Units: ${course.units}
+Grading: ${course.grading}
+
+Provide a concise explanation.`;
+
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model,
             contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: courseSchema,
-            },
         });
         
-        const jsonText = response.text.trim();
-        const courseData = JSON.parse(jsonText);
-
-        // Basic validation
-        if (!courseData.title || !Array.isArray(courseData.lessons)) {
-            throw new Error("Invalid course structure received from API.");
-        }
-
-        return courseData as Course;
+        // FIX: Extract text from response using the .text property as per guidelines.
+        return response.text;
     } catch (error) {
-        console.error("Error generating course:", error);
-        throw new Error("Failed to generate the learning course. The content might be too complex or the AI service is currently unavailable. Please try again with different content.");
+        console.error("Error explaining course with Gemini:", error);
+        throw new Error("Failed to get explanation from AI. Please try again later.");
+    }
+};
+
+export const suggestPrerequisites = async (course: CourseDetails): Promise<string> => {
+    if (!course.prerequisites_text) {
+        return "This course has no prerequisites.";
+    }
+
+    try {
+        const model = 'gemini-2.5-pro'; // Use pro for more complex reasoning
+        const prompt = `A student is looking at the course "${course.name} (${course.course_code})". 
+        The prerequisites are listed as: "${course.prerequisites_text}".
+
+        Please analyze these prerequisites and provide advice for the student.
+        1. Explain what these prerequisite courses likely cover.
+        2. Suggest a logical order to take them if there are multiple.
+        3. Give some tips on how to succeed in the prerequisite courses to be well-prepared for "${course.name}".
+
+        Keep the tone helpful and encouraging.`;
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+        });
+
+        // FIX: Extract text from response using the .text property as per guidelines.
+        return response.text;
+
+    } catch (error) {
+        console.error("Error suggesting prerequisites with Gemini:", error);
+        throw new Error("Failed to get advice on prerequisites from AI. Please try again later.");
     }
 };

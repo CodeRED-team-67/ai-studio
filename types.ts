@@ -1,37 +1,32 @@
-
-export interface Quiz {
-  question: string;
-  options: string[];
-  correctAnswer: string;
+// FIX: Replaced placeholder content with type definitions. This makes it a valid module.
+export interface Subject {
+    id: string;
+    name: string;
+    course_count: number;
 }
 
-export interface FillInTheBlank {
-  sentence: string; // e.g., "The process of converting light to energy is called ___."
-  correctAnswer: string; // e.g., "photosynthesis"
+export interface CourseSummary {
+    id: string;
+    name: string;
+    course_code: string;
 }
 
-export interface ScrambledSentence {
-  scrambled: string[]; // e.g., ["is", "photosynthesis", "important"]
-  correctSentence: string; // e.g., "photosynthesis is important"
-}
-
-export interface Lesson {
-  title: string;
-  content: string;
-  quiz?: Quiz;
-  fillInTheBlank?: FillInTheBlank;
-  scrambledSentence?: ScrambledSentence;
-}
-
-export interface Course {
-  title: string;
-  lessons: Lesson[];
-}
-
-export enum GameState {
-  IDLE = 'IDLE',
-  GENERATING = 'GENERATING',
-  IN_COURSE = 'IN_COURSE',
-  COMPLETED = 'COMPLETED',
-  ERROR = 'ERROR'
+export interface CourseDetails {
+    id: string;
+    name: string;
+    course_code: string;
+    description: string;
+    prerequisites_str: string;
+    prerequisites: string[];
+    corequisites: string[];
+    prerequisites_text: string;
+    corequisites_text: string;
+    units: number;
+    repeatability: string;
+    grading: string;
+    concurrent_with: string[];
+    same_as: string[];
+    restriction_text: string;
+    overlaps_with: string[];
+    faculty_link: string;
 }

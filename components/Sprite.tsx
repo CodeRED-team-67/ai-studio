@@ -1,62 +1,28 @@
-
 import React from 'react';
 
-export type SpriteMood = 'idle' | 'talking' | 'happy' | 'thinking';
-
-interface SpriteProps {
-    mood: SpriteMood;
-}
-
-export const Sprite: React.FC<SpriteProps> = ({ mood }) => {
-    const eyeClass = "transition-all duration-300";
-    const mouthClass = "transition-all duration-300 fill-slate-700";
-
-    let eyeTransform = "";
-    let mouthPath = "M 40 78 Q 50 78 60 78"; // Neutral
-
-    switch (mood) {
-        case 'talking':
-            mouthPath = "M 42 78 Q 50 82 58 78"; // Slightly open
-            break;
-        case 'happy':
-            mouthPath = "M 40 76 Q 50 86 60 76"; // Big smile
-            break;
-        case 'thinking':
-            eyeTransform = "translate(8, -2)";
-            mouthPath = "M 45 78 L 55 78"; // Flat line
-            break;
-        case 'idle':
-        default:
-            break;
-    }
-
+// A simple, friendly robot sprite to add some personality.
+export const Sprite: React.FC<{ className?: string }> = ({ className }) => {
     return (
-        <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-lg">
-            <defs>
-                <radialGradient id="grad-body" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                    <stop offset="0%" style={{ stopColor: '#818cf8', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#4f46e5', stopOpacity: 1 }} />
-                </radialGradient>
-                 <radialGradient id="grad-eye" cx="50%" cy="50%" r="50%" fx="40%" fy="40%">
-                    <stop offset="0%" style={{ stopColor: '#ffffff', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: '#e0e0e0', stopOpacity: 1 }} />
-                </radialGradient>
-            </defs>
-            
-            {/* Body */}
-            <path d="M 50 10 C 20 10, 10 40, 10 60 C 10 90, 40 95, 50 95 C 60 95, 90 90, 90 60 C 90 40, 80 10, 50 10 Z" fill="url(#grad-body)" />
-            
+        <svg
+            className={className}
+            viewBox="0 0 100 100"
+            xmlns="http://www.w3.org/2000/svg"
+            shapeRendering="crispEdges"
+        >
+            {/* Head */}
+            <rect x="25" y="20" width="50" height="40" rx="10" fill="#E0E0E0" stroke="#BDBDBD" strokeWidth="2" />
+            {/* Antenna */}
+            <line x1="50" y1="20" x2="50" y2="10" stroke="#BDBDBD" strokeWidth="2" />
+            <circle cx="50" cy="8" r="3" fill="#64B5F6" />
             {/* Eyes */}
-            <g transform={eyeTransform} className={eyeClass}>
-                <circle cx="35" cy="55" r="10" fill="url(#grad-eye)" />
-                <circle cx="65" cy="55" r="10" fill="url(#grad-eye)" />
-                <circle cx="37" cy="56" r="4" fill="#1e293b" className="animate-pulse" />
-                <circle cx="63" cy="56" r="4" fill="#1e293b" className="animate-pulse" />
-            </g>
-
-            {/* Mouth */}
-            <path d={mouthPath} stroke="#1e293b" strokeWidth="2.5" fill="none" strokeLinecap="round" className={mouthClass}/>
-
+            <circle cx="40" cy="40" r="5" fill="white" />
+            <circle cx="60" cy="40" r="5" fill="white" />
+            <circle cx="41" cy="41" r="2" fill="black" />
+            <circle cx="61" cy="41" r="2" fill="black" />
+            {/* Body */}
+            <rect x="30" y="60" width="40" height="30" rx="5" fill="#E0E0E0" stroke="#BDBDBD" strokeWidth="2" />
+             {/* Smile */}
+            <path d="M 40 50 Q 50 55 60 50" stroke="#757575" strokeWidth="2" fill="none" />
         </svg>
     );
 };

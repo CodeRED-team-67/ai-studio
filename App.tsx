@@ -1,375 +1,274 @@
+// FIX: Replaced placeholder content with a full App component implementation.
+// This component is exported as a default module, fixing the error in index.tsx.
+import React, { useState, useEffect, useMemo } from 'react';
+import { fetchSubjects, fetchCourses, fetchCourseDetails } from './services/apiService';
+import { explainCourse, suggestPrerequisites } from './services/geminiService';
+import { Subject, CourseSummary, CourseDetails } from './types';
+import { LoadingSpinner, BackIcon, SearchIcon, BrainIcon, InfoIcon } from './components/icons';
+import { Sprite } from './components/Sprite';
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Course, GameState, Lesson, Quiz, FillInTheBlank, ScrambledSentence } from './types';
-import { generateCourseFromContent } from './services/geminiService';
-import { Sprite, SpriteMood } from './components/Sprite';
-import { ArrowRightIcon, RefreshCwIcon, SparklesIcon } from './components/icons';
-import { ProgressBar } from './components/ProgressBar';
+type View = 'subjects' | 'courses' | 'details';
 
 const App: React.FC = () => {
-    const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
-    const [courseContent, setCourseContent] = useState<string>('');
-    const [generatedCourse, setGeneratedCourse] = useState<Course | null>(null);
-    const [currentLessonIndex, setCurrentLessonIndex] = useState<number>(0);
-    const [error, setError] = useState<string>('');
-    const [spriteMood, setSpriteMood] = useState<SpriteMood>('idle');
-    
-    // State for all games
-    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null); // For Quiz
-    const [fillInBlankAnswer, setFillInBlankAnswer] = useState(''); // For FillInTheBlank
-    const [scrambledBank, setScrambledBank] = useState<string[]>([]); // For ScrambledSentence
-    const [scrambledAnswer, setScrambledAnswer] = useState<string[]>([]); // For ScrambledSentence
-    const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+    const [view, setView] = useState<View>('subjects');
+    const [subjects, setSubjects] = useState<Subject[]>([]);
+    const [courses, setCourses] = useState<CourseSummary[]>([]);
+    const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+    const [selectedCourse, setSelectedCourse] = useState<CourseSummary | null>(null);
+    const [courseDetails, setCourseDetails] = useState<CourseDetails | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const handleGenerateCourse = useCallback(async () => {
-        if (!courseContent.trim()) {
-            setError('Please enter some content to create a course.');
-            setGameState(GameState.ERROR);
-            return;
-        }
-        setGameState(GameState.GENERATING);
-        setError('');
-        setSpriteMood('thinking');
-        try {
-            const course = await generateCourseFromContent(courseContent);
-            setGeneratedCourse(course);
-            setCurrentLessonIndex(0);
-            setGameState(GameState.IN_COURSE);
-            setSpriteMood('happy');
-        } catch (err: any) {
-            setError(err.message || 'An unknown error occurred.');
-            setGameState(GameState.ERROR);
-            setSpriteMood('idle');
-        }
-    }, [courseContent]);
+    const [geminiExplanation, setGeminiExplanation] = useState('');
+    const [geminiPrereqAdvice, setGeminiPrereqAdvice] = useState('');
+    const [isGeminiLoading, setIsGeminiLoading] = useState(false);
 
-    const resetAllGameStates = () => {
-        setSelectedAnswer(null);
-        setFeedbackMessage(null);
-        setFillInBlankAnswer('');
-        setScrambledBank([]);
-        setScrambledAnswer([]);
-    };
-
-    const handleNext = () => {
-        resetAllGameStates();
-        if (currentLessonIndex < (generatedCourse?.lessons.length ?? 0) - 1) {
-            setCurrentLessonIndex(prev => prev + 1);
-            setSpriteMood('talking');
-        } else {
-            setGameState(GameState.COMPLETED);
-            setSpriteMood('happy');
-        }
-    };
-
-    const handleCheckAnswer = () => {
-        const lesson = generatedCourse?.lessons[currentLessonIndex];
-        if (!lesson) return;
-
-        let isCorrect = false;
-        let feedback = '';
-
-        if (lesson.quiz && selectedAnswer) {
-            isCorrect = selectedAnswer === lesson.quiz.correctAnswer;
-            feedback = isCorrect ? 'Correct! Well done!' : `Not quite! The correct answer was: ${lesson.quiz.correctAnswer}`;
-        } else if (lesson.fillInTheBlank) {
-            isCorrect = fillInBlankAnswer.trim().toLowerCase() === lesson.fillInTheBlank.correctAnswer.toLowerCase();
-            feedback = isCorrect ? "That's right! Excellent!" : `Good try! The correct answer is: ${lesson.fillInTheBlank.correctAnswer}`;
-        } else if (lesson.scrambledSentence) {
-            isCorrect = scrambledAnswer.join(' ') === lesson.scrambledSentence.correctSentence;
-            feedback = isCorrect ? 'Perfect! You unscrambled it!' : `Almost! The correct sentence is: "${lesson.scrambledSentence.correctSentence}"`;
-        }
-
-        setFeedbackMessage(feedback);
-        setSpriteMood(isCorrect ? 'happy' : 'thinking');
-    };
-
-    const handleRestart = () => {
-        setGameState(GameState.IDLE);
-        setCourseContent('');
-        setGeneratedCourse(null);
-        setCurrentLessonIndex(0);
-        setError('');
-        setSpriteMood('idle');
-        resetAllGameStates();
-    };
-    
-    const currentLesson = generatedCourse?.lessons[currentLessonIndex];
-
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-50 to-indigo-100">
-            <main className="w-full max-w-4xl bg-white/70 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-200/50 overflow-hidden border border-slate-200">
-                {gameState === GameState.IDLE && <CourseInputScreen onGenerate={handleGenerateCourse} setContent={setCourseContent} content={courseContent} />}
-                
-                {gameState === GameState.GENERATING && <LoadingScreen />}
-
-                {(gameState === GameState.IN_COURSE || gameState === GameState.COMPLETED) && generatedCourse && (
-                    <TutorScreen
-                        course={generatedCourse}
-                        lesson={currentLesson}
-                        lessonIndex={currentLessonIndex}
-                        onNext={handleNext}
-                        onRestart={handleRestart}
-                        onCheckAnswer={handleCheckAnswer}
-                        feedbackMessage={feedbackMessage}
-                        isCompleted={gameState === GameState.COMPLETED}
-                        spriteMood={spriteMood}
-                        // Game-specific props
-                        selectedAnswer={selectedAnswer}
-                        setSelectedAnswer={setSelectedAnswer}
-                        fillInBlankAnswer={fillInBlankAnswer}
-                        setFillInBlankAnswer={setFillInBlankAnswer}
-                        scrambledBank={scrambledBank}
-                        setScrambledBank={setScrambledBank}
-                        scrambledAnswer={scrambledAnswer}
-                        setScrambledAnswer={setScrambledAnswer}
-                    />
-                )}
-                
-                {gameState === GameState.ERROR && <ErrorScreen error={error} onRestart={handleRestart} />}
-
-            </main>
-            <footer className="text-center mt-6 text-sm text-slate-500">
-                <p>Powered by Gemini. Created with passion.</p>
-            </footer>
-        </div>
-    );
-};
-
-const CourseInputScreen: React.FC<{onGenerate: () => void, setContent: (c: string) => void, content: string}> = ({ onGenerate, setContent, content }) => (
-    <div className="p-8 md:p-12 flex flex-col items-center text-center">
-        <div className="w-24 h-24 mb-4">
-            <Sprite mood="happy" />
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">Welcome to your AI Tutor!</h1>
-        <p className="text-slate-600 mb-6 max-w-xl">Paste your study material below, and I'll create a fun, interactive course for you.</p>
-        <textarea
-            className="w-full h-48 p-4 border-2 border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-300 resize-none mb-4"
-            placeholder="For example: Photosynthesis is a process used by plants, algae, and certain bacteria to harness energy from sunlight and turn it into chemical energy..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-        ></textarea>
-        <button
-            onClick={onGenerate}
-            className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-            <SparklesIcon className="w-5 h-5" />
-            Generate Course
-        </button>
-    </div>
-);
-
-const LoadingScreen: React.FC = () => (
-    <div className="p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-        <div className="w-32 h-32 mb-4">
-            <Sprite mood="thinking" />
-        </div>
-        <h2 className="text-2xl font-semibold text-slate-700 animate-pulse">Crafting your course...</h2>
-        <p className="text-slate-500 mt-2">The AI is working its magic!</p>
-    </div>
-);
-
-const ErrorScreen: React.FC<{error: string, onRestart: () => void}> = ({ error, onRestart }) => (
-     <div className="p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-        <div className="w-32 h-32 mb-4">
-            <Sprite mood="idle" />
-        </div>
-        <h2 className="text-2xl font-bold text-red-600">Oops! Something went wrong.</h2>
-        <p className="text-slate-600 my-4 max-w-md">{error}</p>
-        <button
-            onClick={onRestart}
-            className="flex items-center justify-center gap-2 px-6 py-2 bg-slate-600 text-white font-semibold rounded-lg shadow-md hover:bg-slate-700 transition-all"
-        >
-            <RefreshCwIcon className="w-5 h-5" />
-            Try Again
-        </button>
-    </div>
-);
-
-// Minigame Components
-const QuizComponent: React.FC<{ quiz: Quiz; selectedAnswer: string | null; setSelectedAnswer: (a: string) => void; isAnswered: boolean; }> = 
-({ quiz, selectedAnswer, setSelectedAnswer, isAnswered }) => (
-    <div>
-        <p className="font-semibold text-lg mb-3">{quiz.question}</p>
-        <div className="space-y-2">
-            {quiz.options.map((option) => (
-                <button
-                    key={option}
-                    onClick={() => !isAnswered && setSelectedAnswer(option)}
-                    disabled={isAnswered}
-                    className={`w-full text-left p-3 border-2 rounded-lg transition-all ${
-                        selectedAnswer === option
-                            ? 'border-indigo-500 bg-indigo-100 ring-2 ring-indigo-300'
-                            : 'border-slate-200 bg-white hover:bg-slate-100'
-                    } ${isAnswered ? 'cursor-not-allowed opacity-70' : ''}`}
-                >
-                    {option}
-                </button>
-            ))}
-        </div>
-    </div>
-);
-
-const FillInTheBlankComponent: React.FC<{ game: FillInTheBlank; answer: string; setAnswer: (a: string) => void; isAnswered: boolean; }> = 
-({ game, answer, setAnswer, isAnswered }) => (
-    <div>
-        <p className="text-slate-700 mb-4 text-lg leading-relaxed">{game.sentence.split('___')[0]}
-            <input 
-                type="text"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                disabled={isAnswered}
-                className="inline-block w-36 mx-2 px-2 py-1 border-b-2 border-indigo-300 focus:border-indigo-500 focus:outline-none bg-transparent"
-                placeholder="type here"
-            />
-        {game.sentence.split('___')[1]}</p>
-    </div>
-);
-
-const ScrambledSentenceComponent: React.FC<{ game: ScrambledSentence; bank: string[]; setBank: (b: string[])=>void; answer: string[]; setAnswer: (a: string[])=>void; isAnswered: boolean; }> =
-({ game, bank, setBank, answer, setAnswer, isAnswered }) => {
-    
     useEffect(() => {
-        setBank(game.scrambled.sort(() => Math.random() - 0.5));
-        setAnswer([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [game]);
+        const loadSubjects = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const data = await fetchSubjects();
+                setSubjects(data);
+            } catch (err) {
+                setError('Failed to load subjects. Please check your connection and try again.');
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadSubjects();
+    }, []);
 
-    const selectWord = (word: string, index: number) => {
-        if(isAnswered) return;
-        setBank(prev => prev.filter((_, i) => i !== index));
-        setAnswer(prev => [...prev, word]);
+    const handleSelectSubject = async (subject: Subject) => {
+        setSelectedSubject(subject);
+        setView('courses');
+        setIsLoading(true);
+        setError(null);
+        setCourses([]);
+        try {
+            const data = await fetchCourses(subject.id);
+            setCourses(data);
+        } catch (err) {
+            setError(`Failed to load courses for ${subject.name}.`);
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSelectCourse = async (course: CourseSummary) => {
+        if (!selectedSubject) return;
+        setSelectedCourse(course);
+        setView('details');
+        setIsLoading(true);
+        setError(null);
+        setCourseDetails(null);
+        setGeminiExplanation('');
+        setGeminiPrereqAdvice('');
+        try {
+            const data = await fetchCourseDetails(selectedSubject.id, course.id);
+            setCourseDetails(data);
+        } catch (err) {
+            setError(`Failed to load details for ${course.name}.`);
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleBack = () => {
+        setError(null);
+        setSearchTerm('');
+        if (view === 'details') {
+            setView('courses');
+            setSelectedCourse(null);
+            setCourseDetails(null);
+        } else if (view === 'courses') {
+            setView('subjects');
+            setSelectedSubject(null);
+            setCourses([]);
+        }
     };
     
-    const deselectWord = (word: string, index: number) => {
-        if(isAnswered) return;
-        setAnswer(prev => prev.filter((_, i) => i !== index));
-        setBank(prev => [...prev, word]);
+    const handleExplainCourse = async () => {
+        if (!courseDetails) return;
+        setIsGeminiLoading(true);
+        setGeminiExplanation('');
+        try {
+            const explanation = await explainCourse(courseDetails);
+            setGeminiExplanation(explanation);
+        } catch (err) {
+            setGeminiExplanation('Sorry, I couldn\'t generate an explanation right now.');
+        } finally {
+            setIsGeminiLoading(false);
+        }
     };
-    
-    return (
-        <div>
-            <p className="font-semibold text-lg mb-3">Unscramble this sentence!</p>
-            <div className="min-h-[4rem] p-3 mb-3 bg-white border-2 border-slate-200 rounded-lg flex flex-wrap gap-2">
-                {answer.map((word, index) => (
-                    <button key={`${word}-${index}`} onClick={() => deselectWord(word, index)} className="px-3 py-1 bg-indigo-500 text-white rounded-md shadow-sm">{word}</button>
-                ))}
-                {!answer.length && <span className="text-slate-400">Click words below to build your sentence here...</span>}
-            </div>
-             <div className="p-3 bg-slate-100 rounded-lg flex flex-wrap gap-2">
-                {bank.map((word, index) => (
-                     <button key={`${word}-${index}`} onClick={() => selectWord(word, index)} className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md">{word}</button>
-                ))}
-            </div>
-        </div>
+
+    const handleSuggestPrereqs = async () => {
+        if (!courseDetails) return;
+        setIsGeminiLoading(true);
+        setGeminiPrereqAdvice('');
+        try {
+            const advice = await suggestPrerequisites(courseDetails);
+            setGeminiPrereqAdvice(advice);
+        } catch (err) {
+            setGeminiPrereqAdvice('Sorry, I couldn\'t generate advice for prerequisites right now.');
+        } finally {
+            setIsGeminiLoading(false);
+        }
+    };
+
+    const filteredSubjects = useMemo(() =>
+        subjects.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())),
+        [subjects, searchTerm]
     );
-};
 
-// Main Tutor Screen
-interface TutorScreenProps {
-    course: Course;
-    lesson?: Lesson;
-    lessonIndex: number;
-    onNext: () => void;
-    onRestart: () => void;
-    onCheckAnswer: () => void;
-    feedbackMessage: string | null;
-    isCompleted: boolean;
-    spriteMood: SpriteMood;
-    // Game state props
-    selectedAnswer: string | null;
-    setSelectedAnswer: (answer: string) => void;
-    fillInBlankAnswer: string;
-    setFillInBlankAnswer: (answer: string) => void;
-    scrambledBank: string[];
-    setScrambledBank: (bank: string[]) => void;
-    scrambledAnswer: string[];
-    setScrambledAnswer: (answer: string[]) => void;
-}
+    const filteredCourses = useMemo(() =>
+        courses.filter(c => 
+            c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            c.course_code.toLowerCase().includes(searchTerm.toLowerCase())
+        ),
+        [courses, searchTerm]
+    );
 
-const TutorScreen: React.FC<TutorScreenProps> = (props) => {
-    const { course, lesson, lessonIndex, onNext, onRestart, onCheckAnswer, feedbackMessage, isCompleted, spriteMood } = props;
-
-    if (isCompleted) {
-        return (
-            <div className="p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[500px]">
-                <div className="w-32 h-32 mb-4">
-                    <Sprite mood="happy" />
-                </div>
-                <h2 className="text-3xl font-bold text-indigo-600">Course Complete!</h2>
-                <p className="text-slate-600 my-4">You did an amazing job finishing the "{course.title}" course!</p>
-                <button
-                    onClick={onRestart}
-                    className="flex items-center justify-center gap-2 px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all"
-                >
-                    <RefreshCwIcon className="w-5 h-5" />
-                    Start a New Course
-                </button>
-            </div>
-        );
-    }
-    
-    if (!lesson) return null;
-
-    const isGameMode = !!lesson.quiz || !!lesson.fillInTheBlank || !!lesson.scrambledSentence;
-    const isAnswered = !!feedbackMessage;
-    
-    let isCheckButtonDisabled = true;
-    if (lesson.quiz) isCheckButtonDisabled = !props.selectedAnswer;
-    if (lesson.fillInTheBlank) isCheckButtonDisabled = !props.fillInBlankAnswer.trim();
-    if (lesson.scrambledSentence) isCheckButtonDisabled = props.scrambledAnswer.length === 0;
-
-    return (
-        <div className="p-6 md:p-8">
-            <header className="mb-6">
-                <h1 className="text-2xl font-bold text-center mb-2">{course.title}</h1>
-                <ProgressBar current={lessonIndex + 1} total={course.lessons.length} />
-                <p className="text-center text-sm text-slate-500 mt-2">Lesson {lessonIndex + 1} of {course.lessons.length}</p>
-            </header>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-1 flex flex-col items-center">
-                    <div className="w-40 h-40 md:w-48 md:h-48">
-                        <Sprite mood={spriteMood} />
-                    </div>
-                </div>
-                <div className="md:col-span-2 bg-indigo-50/50 p-6 rounded-lg border border-indigo-200">
-                    <h2 className="text-xl font-semibold mb-3">{lesson.title}</h2>
-                    <p className="text-slate-700 whitespace-pre-wrap mb-4">{lesson.content}</p>
-                    
-                    {isGameMode && <div className="border-t border-indigo-200 my-4"></div>}
-
-                    {lesson.quiz && <QuizComponent quiz={lesson.quiz} selectedAnswer={props.selectedAnswer} setSelectedAnswer={props.setSelectedAnswer} isAnswered={isAnswered} />}
-                    {lesson.fillInTheBlank && <FillInTheBlankComponent game={lesson.fillInTheBlank} answer={props.fillInBlankAnswer} setAnswer={props.setFillInBlankAnswer} isAnswered={isAnswered} />}
-                    {lesson.scrambledSentence && <ScrambledSentenceComponent game={lesson.scrambledSentence} bank={props.scrambledBank} setBank={props.setScrambledBank} answer={props.scrambledAnswer} setAnswer={props.setScrambledAnswer} isAnswered={isAnswered}/>}
-
-                    {feedbackMessage && (
-                        <p className={`mt-4 font-semibold ${feedbackMessage.startsWith('Correct') || feedbackMessage.startsWith('That\'s') || feedbackMessage.startsWith('Perfect') ? 'text-green-600' : 'text-red-600'}`}>{feedbackMessage}</p>
-                    )}
-                </div>
-            </div>
-            <footer className="mt-6 flex justify-end">
-                {isGameMode && !isAnswered && (
-                     <button
-                        onClick={onCheckAnswer}
-                        disabled={isCheckButtonDisabled}
-                        className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all disabled:bg-slate-400 disabled:cursor-not-allowed"
-                    >
-                        Check Answer
+    const renderHeader = () => (
+        <header className="bg-gray-800 text-white p-4 flex items-center justify-between sticky top-0 z-10 shadow-lg">
+            <div className="flex items-center">
+                {view !== 'subjects' && (
+                    <button onClick={handleBack} className="mr-4 p-2 rounded-full hover:bg-gray-700 transition-colors">
+                        <BackIcon className="h-6 w-6" />
                     </button>
                 )}
-                 {(!isGameMode || isAnswered) && (
-                    <button
-                        onClick={onNext}
-                        className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-all transform hover:scale-105"
-                    >
-                        {lessonIndex === course.lessons.length - 1 ? 'Finish Course' : 'Next'}
-                        <ArrowRightIcon className="w-5 h-5" />
-                    </button>
-                 )}
-            </footer>
+                <Sprite className="w-10 h-10 mr-3" />
+                <h1 className="text-2xl font-bold">Cora AI Course Explorer</h1>
+            </div>
+            {(view === 'subjects' || view === 'courses') && (
+                 <div className="relative">
+                    <input
+                        type="text"
+                        placeholder={view === 'subjects' ? "Search subjects..." : "Search courses..."}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="bg-gray-700 text-white rounded-full py-2 px-4 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <SearchIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                </div>
+            )}
+        </header>
+    );
+
+    const renderContent = () => {
+        if (isLoading && view !== 'details') {
+            return <div className="flex justify-center items-center h-64"><LoadingSpinner className="h-12 w-12 text-blue-500" /></div>;
+        }
+
+        if (error) {
+            return <div className="text-center text-red-500 p-4">{error}</div>;
+        }
+
+        switch (view) {
+            case 'subjects':
+                return (
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
+                        {filteredSubjects.map(subject => (
+                            <li key={subject.id} onClick={() => handleSelectSubject(subject)}
+                                className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow-md hover:shadow-xl hover:scale-105 transform transition-all cursor-pointer">
+                                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{subject.name}</h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{subject.course_count} courses</p>
+                            </li>
+                        ))}
+                    </ul>
+                );
+            case 'courses':
+                return (
+                    <div>
+                        <h2 className="text-2xl font-bold p-4 text-gray-800 dark:text-white">{selectedSubject?.name}</h2>
+                        <ul className="p-4 space-y-3">
+                            {filteredCourses.map(course => (
+                                <li key={course.id} onClick={() => handleSelectCourse(course)}
+                                    className="bg-white dark:bg-gray-700 p-4 rounded-lg shadow-sm hover:shadow-lg transition-shadow cursor-pointer">
+                                    <h3 className="text-md font-semibold text-gray-800 dark:text-white">{course.name}</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{course.course_code}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                );
+            case 'details':
+                if (isLoading) {
+                     return <div className="flex justify-center items-center h-64"><LoadingSpinner className="h-12 w-12 text-blue-500" /></div>;
+                }
+                if (!courseDetails) {
+                    return <div className="text-center text-gray-500 p-4">No course details available.</div>;
+                }
+                return (
+                    <div className="p-4 md:p-8">
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+                             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{courseDetails.name}</h2>
+                             <p className="text-lg text-gray-500 dark:text-gray-400 mb-4">{courseDetails.course_code}</p>
+                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 text-center">
+                                <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-lg">
+                                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Units</p>
+                                    <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{courseDetails.units}</p>
+                                </div>
+                                <div className="bg-green-100 dark:bg-green-900 p-3 rounded-lg col-span-2 md:col-span-2">
+                                    <p className="text-sm font-medium text-green-800 dark:text-green-200">Grading</p>
+                                    <p className="text-md font-bold text-green-900 dark:text-green-100">{courseDetails.grading}</p>
+                                </div>
+                             </div>
+
+                             <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2 border-b pb-2">Description</h3>
+                             <p className="text-gray-600 dark:text-gray-300 mb-6">{courseDetails.description}</p>
+                             
+                             {courseDetails.prerequisites_text && (
+                                <>
+                                <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2 border-b pb-2">Prerequisites</h3>
+                                <p className="text-gray-600 dark:text-gray-300 mb-6">{courseDetails.prerequisites_text}</p>
+                                </>
+                            )}
+                            
+                            <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg space-y-4">
+                                <h3 className="text-xl font-bold text-center text-gray-800 dark:text-white mb-4">✨ AI Assistant ✨</h3>
+                                <div className="space-y-4 md:space-y-0 md:flex md:space-x-4">
+                                    <button onClick={handleExplainCourse} disabled={isGeminiLoading} className="w-full md:w-1/2 flex items-center justify-center bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors">
+                                        <BrainIcon className="h-5 w-5 mr-2"/>
+                                        Explain This Course
+                                    </button>
+                                    <button onClick={handleSuggestPrereqs} disabled={isGeminiLoading || !courseDetails.prerequisites_text} className="w-full md:w-1/2 flex items-center justify-center bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 disabled:bg-purple-400 transition-colors">
+                                        <InfoIcon className="h-5 w-5 mr-2"/>
+                                        Prerequisite Advice
+                                    </button>
+                                </div>
+                                 {isGeminiLoading && <div className="flex justify-center items-center p-4"><LoadingSpinner className="h-8 w-8 text-gray-500" /> <span className="ml-2 text-gray-600 dark:text-gray-300">AI is thinking...</span></div>}
+                                {geminiExplanation && (
+                                    <div className="mt-4 p-4 bg-blue-50 dark:bg-gray-700 rounded-lg border border-blue-200 dark:border-gray-600">
+                                        <h4 className="font-bold text-lg text-blue-800 dark:text-blue-200 mb-2">Course Explained</h4>
+                                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{geminiExplanation}</p>
+                                    </div>
+                                )}
+                                {geminiPrereqAdvice && (
+                                    <div className="mt-4 p-4 bg-purple-50 dark:bg-gray-700 rounded-lg border border-purple-200 dark:border-gray-600">
+                                        <h4 className="font-bold text-lg text-purple-800 dark:text-purple-200 mb-2">Prerequisite Advice</h4>
+                                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{geminiPrereqAdvice}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+        }
+    };
+    
+    return (
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans">
+            {renderHeader()}
+            <main>
+                {renderContent()}
+            </main>
         </div>
     );
 };
-
 
 export default App;

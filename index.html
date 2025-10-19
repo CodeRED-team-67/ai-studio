@@ -1,34 +1,61 @@
-
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-g" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gamified AI Tutor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-      body {
-        font-family: 'Poppins', sans-serif;
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
       }
+    }
+    </script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        .font-press-start {
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: -0.05em; /* Adjust spacing for pixel font */
+        }
+        
+        @keyframes scroll-bg {
+            from { background-position: 0 0; }
+            to { background-position: -1024px 0; }
+        }
+
+        .animated-bg {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80"><rect width="80" height="80" fill="%23a7d8f9" /><circle cx="20" cy="20" r="2" fill="white" /><circle cx="60" cy="60" r="2" fill="white" /><circle cx="70" cy="10" r="1" fill="%23f1f5f9" /><circle cx="30" cy="50" r="1" fill="%23f1f5f9" /><circle cx="50" cy="30" r="1" fill="%23f1f5f9" /></svg>');
+            background-repeat: repeat-x;
+            background-size: auto 100%;
+            animation: scroll-bg 60s linear infinite;
+        }
+
+        .dark .animated-bg {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80"><rect width="80" height="80" fill="%230f172a" /><circle cx="20" cy="20" r="2" fill="%23334155" /><circle cx="60" cy="60" r="2" fill="%23334155" /><circle cx="70" cy="10" r="1" fill="%2364748b" /><circle cx="30" cy="50" r="1" fill="%2364748b" /><circle cx="50" cy="30" r="1" fill="%2364748b" /></svg>');
+        }
+        
+        /* Improve text readability over background */
+        .text-shadow {
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        .dark .text-shadow-dark {
+             text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
-  }
-}
-</script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-slate-50 text-slate-800">
+<body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-  </body>
+</body>
 </html>
